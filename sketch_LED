@@ -1,0 +1,120 @@
+#include <SoftwareSerial.h>
+
+int txPin = 2; //lcd output 
+int shutterPin = 7;  //output to camera
+const int startLEDPin = 13;  //visual display of timelapse running
+const int focusPin = 8; //input for begin button
+const int startPin = 3; //input for begin button
+const int upPin = 4;  //input for up button
+const int downPin = 5;  //input for down button
+int count = 0;  //keeps track of number of pictures.
+int time = 0;  //keeps track of time between pictures
+int prevState = 0;
+int newState = 0;
+int prevStatetwo = 0;
+int newStatetwo = 0;
+int startState = 0;
+int prevStartState = 0;
+
+SoftwareSerial LCD = SoftwareSerial(2, txPin);
+const int LCDdelay=10; 
+
+// wbp: goto with row & column
+void lcdPosition(int row, int col) {
+  LCD.write(0xFE);   //command flag
+  LCD.write((col + row*64 + 128));    //position 
+  delay(LCDdelay);
+}
+void clearLCD(){
+  LCD.write(0xFE);   //command flag
+  LCD.write(0x01);   //clear command.
+  delay(LCDdelay);
+}
+void backlightOn() {  //turns on the backlight
+  LCD.write(0x7C);   //command flag for backlight stuff
+  //LCD.write(157);    //light level.
+  delay(LCDdelay);
+}
+void backlightOff(){  //turns off the backlight
+  LCD.write(0x7C);   //command flag for backlight stuff
+ // LCD.write(128);     //light level for off.
+   delay(LCDdelay);
+}
+void serCommand(){   //a general function to call the command flag for issuing all other commands   
+  LCD.write(0xFE);
+}
+
+void setup()
+{
+  pinMode(txPin, OUTPUT); //LCD is set to output
+  pinMode(shutterPin, OUTPUT); //Sets shutter to output
+  digitalWrite(shutterPin, LOW); //shuter pin is initially low
+  pinMode(startPin, INPUT); //start/stop button is an input
+  pinMode(startLEDPin, OUTPUT); //status LDed
+  pinMode(upPin, INPUT); //Value up button is an input
+  pinMode(downPin, INPUT); //value down button is an input
+  count = 0; //varible for number of photos taken
+  time = 0; //interval between photos
+  LCD.begin(9600);
+  updateLCD();
+}
+  
+void loop(){
+   newState = digitalRead(upPin);
+  
+   if (newState == 1 && prevState != newState) {
+    time += 1;
+    updateLCD();
+   }
+   prevState = newState;
+  
+   newStatetwo = digitalRead(downPin);
+  
+   if (newStatetwo == 1 && prevStatetwo != newStatetwo) {
+      if (time > 0){
+        time -= 1;
+        updateLCD();
+      }
+   }
+   prevStatetwo = newStatetwo;
+   
+   startState = digitalRead(startPin);
+   if (startState == 1 && startState != prevStartState) {
+     prevStartState = 1;
+     boolean finish = false;
+     while (finish == false) {
+       
+       startState = digitalRead(startPin);
+       if (startState == 1 && startState != prevStartState) {
+         time = -1;
+         updateLCD();
+         digitalWrite(startLEDPin, LOW);
+         finish = true;
+         break;
+       }
+       prevStartState = startState;
+       digitalWrite(shutterPin, HIGH);
+       delay (50);
+       digitalWrite(shutterPin, LOW);
+       digitalWrite(startLEDPin, HIGH);
+       count += 1;
+       updateLCD();
+       delay(time * 1000);
+     }
+   }
+   prevStartState = startState;
+   
+}
+void updateLCD() {
+  clearLCD();
+  lcdPosition(0,0);
+  LCD.print("Interval:"); //prints interval on the screen
+  lcdPosition(0,13);
+  LCD.print("Sec"); //prints unit of time on the screen
+  lcdPosition(1,0);
+  LCD.print("# of Photos:"); //prints # of photos on the screen
+  lcdPosition(0,9);
+  LCD.print(time); //prints interval in seconds
+  lcdPosition(1,12);
+  LCD.print(count); //prints the number of photos taken
+}
